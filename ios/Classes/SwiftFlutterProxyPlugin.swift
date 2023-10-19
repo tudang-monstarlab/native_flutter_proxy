@@ -35,11 +35,8 @@ public class SwiftFlutterProxyPlugin: NSObject, FlutterPlugin {
                 if let autoconfigUrl = proxyDictionary.value(forKey: (kCFProxyAutoConfigurationURLKey as String)), 
                    let proxyURL = URL(string: String(describing: autoconfigUrl)) as CFURL?, 
                    let hostCfUrl = url as CFURL? {
-                    print("autoconfigurl:" + autoconfigUrl)
-                    print("proxyURL:" + proxyURL)
-                    print("hostCfUrl:" + hostCfUrl)
                     var context = CFStreamClientContext(version: CFIndex(0), info: nil, retain: nil, release: nil, copyDescription: nil)
-                    let runLoopSource = CFNetworkExecuteProxyAutoConfigurationURL(proxyURL , hostCfUrl, (_, proxies, __ ) in {
+                    let runLoopSource = CFNetworkExecuteProxyAutoConfigurationURL(proxyURL , hostCfUrl, {(_, proxies, __ ) in 
                         if let proxyArray = proxies as? [Dictionary<CFString, Any>] {
                             for dictionary in proxyArray {
                                 if let host = dictionary[kCFProxyHostNameKey], let port = dictionary[kCFProxyPortNumberKey]{
@@ -48,7 +45,6 @@ public class SwiftFlutterProxyPlugin: NSObject, FlutterPlugin {
                                 }
                             }
                         }
-                        return nil
                     }
                     , &context)
                     CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource.takeUnretainedValue(), CFRunLoopMode.defaultMode)
