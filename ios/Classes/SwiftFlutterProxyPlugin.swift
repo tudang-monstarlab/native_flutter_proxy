@@ -2,22 +2,22 @@ import Flutter
 import UIKit
 
 public class SwiftFlutterProxyPlugin: NSObject, FlutterPlugin {
-  public static func register(with registrar: FlutterPluginRegistrar) {
-    let channel = FlutterMethodChannel(name: "native_flutter_proxy", binaryMessenger: registrar.messenger())
-    let instance = SwiftFlutterProxyPlugin()
-    registrar.addMethodCallDelegate(instance, channel: channel)
-  }
-
-  public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-    switch call.method {
-        case "getProxySetting":
-            result(getProxySetting())
-            break
-        default:
-            result(FlutterMethodNotImplemented)
-            break
+    public static func register(with registrar: FlutterPluginRegistrar) {
+      let channel = FlutterMethodChannel(name: "native_flutter_proxy", binaryMessenger: registrar.messenger())
+      let instance = SwiftFlutterProxyPlugin()
+      registrar.addMethodCallDelegate(instance, channel: channel)
     }
-  }
+
+    public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+        switch call.method {
+            case "getProxySetting":
+                result(getProxySetting())
+                break
+            default:
+                result(FlutterMethodNotImplemented)
+                break
+        }
+    }
 
     func getProxySetting() -> NSDictionary? {
         guard let proxySettings = CFNetworkCopySystemProxySettings()?.takeUnretainedValue(),
@@ -36,8 +36,8 @@ public class SwiftFlutterProxyPlugin: NSObject, FlutterPlugin {
                    let proxyURL = URL(string: String(describing: autoconfigUrl)) as CFURL?, 
                    let hostCfUrl = url as CFURL? {
                     var context = CFStreamClientContext(version: CFIndex(0), info: nil, retain: nil, release: nil, copyDescription: nil)
-                    let runLoopSource = CFNetworkExecuteProxyAutoConfigurationURL(proxyURL , hostCfUrl, {(_, proxies, __ ) in 
-                        if let proxyArray = proxies as? [Dictionary<CFString, Any>] {
+                    let runLoopSource = CFNetworkExecuteProxyAutoConfigurationURL(proxyURL , hostCfUrl, {(client, proxiesArrRef, error) -> Void in 
+                        if let proxyArray = proxiesArrRef as? [Dictionary<CFString, Any>] {
                             for dictionary in proxyArray {
                                 if let host = dictionary[kCFProxyHostNameKey], let port = dictionary[kCFProxyPortNumberKey]{
                                     proxyDictionaryFinal = ["host":host, "port":port] as NSDictionary
@@ -45,14 +45,11 @@ public class SwiftFlutterProxyPlugin: NSObject, FlutterPlugin {
                                 }
                             }
                         }
-                    }
-                    , &context)
+                    }, &context)
                     CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource.takeUnretainedValue(), CFRunLoopMode.defaultMode)
                 }
-            }
-
-        }
-
+            }   
+        }   
         if let proxyDict = proxyDictionaryFinal {
             return proxyDict
         }
