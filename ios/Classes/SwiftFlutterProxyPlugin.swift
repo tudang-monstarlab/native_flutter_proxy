@@ -29,31 +29,33 @@ public class SwiftFlutterProxyPlugin: NSObject, FlutterPlugin {
             let _ = settings.object(forKey: (kCFProxyTypeKey as String)) as? String else {
                 return nil
         }
-        var proxyDictionary: NSDictionary?
+        var proxyDictionaryFinal: NSDictionary?
         for proxy in proxies {
-            if let autoconfigUrl = proxyDictionary.value(forKey: (kCFProxyAutoConfigurationURLKey as String)), let proxyURL = URL(string: String(describing: autoconfigUrl)) as CFURL?, let hostCfUrl = url as CFURL? {
-                var context = CFStreamClientContext(version: CFIndex(0), info: nil, retain: nil, release: nil, copyDescription: nil)
-                let runLoopSource = CFNetworkExecuteProxyAutoConfigurationURL(proxyURL , hostCfUrl, {(_, proxies, __ ) in
-                    if let proxyArray = proxies as? [Dictionary<CFString, Any>] {
-                        var message = ""
-                        for dictionary in proxyArray {
-                            for (key, value) in dictionary {
-                                message = "\(message);key: \(key) with type \(key.self), value: \(value)"
-                            }
-                            if let host = dictionary[kCFProxyHostNameKey], let port = dictionary[kCFProxyPortNumberKey]{
-                                proxyDictionary = ["host":host, "port":port] as NSDictionary
-                                break
+            if let proxyDictionary = proxy as? NSDictionary {
+                if let autoconfigUrl = proxyDictionary.value(forKey: (kCFProxyAutoConfigurationURLKey as String)), let proxyURL = URL(string: String(describing: autoconfigUrl)) as CFURL?, let hostCfUrl = url as CFURL? {
+                    var context = CFStreamClientContext(version: CFIndex(0), info: nil, retain: nil, release: nil, copyDescription: nil)
+                    let runLoopSource = CFNetworkExecuteProxyAutoConfigurationURL(proxyURL , hostCfUrl, {(_, proxies, __ ) in
+                        if let proxyArray = proxies as? [Dictionary<CFString, Any>] {
+                            var message = ""
+                            for dictionary in proxyArray {
+                                for (key, value) in dictionary {
+                                    message = "\(message);key: \(key) with type \(key.self), value: \(value)"
+                                }
+                                if let host = dictionary[kCFProxyHostNameKey], let port = dictionary[kCFProxyPortNumberKey]{
+                                    proxyDictionaryFinal = ["host":host, "port":port] as NSDictionary
+                                    break
+                                }
                             }
                         }
-                    }
-                }, &context)
-                let runLoop: CFRunLoop = CFRunLoopGetCurrent()
-                CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource.takeUnretainedValue(), CFRunLoopMode.defaultMode)
+                    }, &context)
+                    let runLoop: CFRunLoop = CFRunLoopGetCurrent()
+                    CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource.takeUnretainedValue(), CFRunLoopMode.defaultMode)
+                }
             }
 
         }
 
-        if let proxyDict = proxyDictionary {
+        if let proxyDict = proxyDictionaryFinal {
             return proxyDict
         }
         if let hostName = settings.object(forKey: (kCFProxyHostNameKey as String)), let port = settings.object(forKey: (kCFProxyPortNumberKey as String)) {
