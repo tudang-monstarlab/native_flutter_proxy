@@ -29,34 +29,34 @@ public class SwiftFlutterProxyPlugin: NSObject, FlutterPlugin {
             let _ = settings.object(forKey: (kCFProxyTypeKey as String)) as? String else {
                 return nil
         }
-        if let proxy = proxies.compactMap({ $0 as? NSDictionary })
-            .first(where: { $0.value(forKey: kCFProxyAutoConfigurationURLKey as String) != nil }),
-           let autoconfigUrl = proxy.value(forKey: kCFProxyAutoConfigurationURLKey as String) as? CFURL,
-           let hostCfUrl = url as CFURL {
-
-            var context = CFStreamClientContext(version: CFIndex(0), info: nil, retain: nil, release: nil, copyDescription: nil)
-            let runLoopSource = CFNetworkExecuteProxyAutoConfigurationURL(autoconfigUrl, hostCfUrl) { (_, proxies, _) in
-                guard let proxyArray = proxies as? [[CFString: Any]] else {
-                    return nil
-                }
-
-                var message = ""
-                for dictionary in proxyArray {
-                    for (key, value) in dictionary {
-                        message = "\(message);key: \(key) with type \(key.self), value: \(value)"
+        for proxy in proxies {
+            if let proxyDictionary = proxy as? NSDictionary {
+                if let autoconfigUrl = proxyDictionary.value(forKey: (kCFProxyAutoConfigurationURLKey as String)), let proxyURL = URL(string: String(describing: autoconfigUrl)) as CFURL?, let hostCfUrl = url as CFURL? {
+                    
+                    return Single.create { (singleEvent: @escaping (SingleEvent<Any?>) -> Void) -> Disposable in
+                        ProxyMethodCallHandler.emit = singleEvent
+                        var context = CFStreamClientContext(version: CFIndex(0), info: nil, retain: nil, release: nil, copyDescription: nil)
+                        let runLoopSource = CFNetworkExecuteProxyAutoConfigurationURL(proxyURL , hostCfUrl, {(_, proxies, __ ) in
+                            if let proxyArray = proxies as? [Dictionary<CFString, Any>] {
+                                var message = ""
+                                for dictionary in proxyArray {
+                                    for (key, value) in dictionary {
+                                        message = "\(message);key: \(key) with type \(key.self), value: \(value)"
+                                    }
+                                    if let host = dictionary[kCFProxyHostNameKey], let port = dictionary[kCFProxyPortNumberKey]{
+                                        return ["host":host, "port":port]
+                                    }
+                                }
+                                return nil
+                            } else {
+                                return nil
+                            }
+                        }, &context)
+                        let runLoop: CFRunLoop = CFRunLoopGetCurrent()
+                        CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource.takeUnretainedValue(), CFRunLoopMode.defaultMode)
                     }
-                    if let host = dictionary[kCFProxyHostNameKey],
-                       let port = dictionary[kCFProxyPortNumberKey] {
-                        return ["host": host, "port": port]
-                    }
                 }
-                return nil
             }
-
-            let runLoop: CFRunLoop = CFRunLoopGetCurrent()
-            CFRunLoopRemoveSource(runLoop, runLoopSource.takeUnretainedValue(), CFRunLoopMode.defaultMode)
-
-            return nil
         }
 
         if let hostName = settings.object(forKey: (kCFProxyHostNameKey as String)), let port = settings.object(forKey: (kCFProxyPortNumberKey as String)) {
