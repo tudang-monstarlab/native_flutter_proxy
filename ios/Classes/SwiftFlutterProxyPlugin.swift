@@ -32,23 +32,25 @@ public class SwiftFlutterProxyPlugin: NSObject, FlutterPlugin {
         var proxyDictionaryFinal: NSDictionary?
         for proxy in proxies {
             if let proxyDictionary = proxy as? NSDictionary {
-                if let autoconfigUrl = proxyDictionary.value(forKey: (kCFProxyAutoConfigurationURLKey as String)), let proxyURL = URL(string: String(describing: autoconfigUrl)) as CFURL?, let hostCfUrl = url as CFURL? {
+                if let autoconfigUrl = proxyDictionary.value(forKey: (kCFProxyAutoConfigurationURLKey as String)), 
+                   let proxyURL = URL(string: String(describing: autoconfigUrl)) as CFURL?, 
+                   let hostCfUrl = url as CFURL? {
+                    print("autoconfigurl:" + autoconfigUrl)
+                    print("proxyURL:" + proxyURL)
+                    print("hostCfUrl:" + hostCfUrl)
                     var context = CFStreamClientContext(version: CFIndex(0), info: nil, retain: nil, release: nil, copyDescription: nil)
-                    let runLoopSource = CFNetworkExecuteProxyAutoConfigurationURL(proxyURL , hostCfUrl, {(_, proxies, __ ) in
+                    let runLoopSource = CFNetworkExecuteProxyAutoConfigurationURL(proxyURL , hostCfUrl, (_, proxies, __ ) in {
                         if let proxyArray = proxies as? [Dictionary<CFString, Any>] {
-                            var message = ""
                             for dictionary in proxyArray {
-                                for (key, value) in dictionary {
-                                    message = "\(message);key: \(key) with type \(key.self), value: \(value)"
-                                }
                                 if let host = dictionary[kCFProxyHostNameKey], let port = dictionary[kCFProxyPortNumberKey]{
                                     proxyDictionaryFinal = ["host":host, "port":port] as NSDictionary
                                     break
                                 }
                             }
                         }
-                    }, &context)
-                    let runLoop: CFRunLoop = CFRunLoopGetCurrent()
+                        return nil
+                    }
+                    , &context)
                     CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource.takeUnretainedValue(), CFRunLoopMode.defaultMode)
                 }
             }
